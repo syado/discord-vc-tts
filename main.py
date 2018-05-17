@@ -108,7 +108,7 @@ def vcwrite(message):
             break
     
     dt = datetime.datetime.today().strftime("%m_%d_%H_%M_%S_")
-    fname = "./"+"vcfile"+"/"+dt+message.author.id+".wav"
+    fname = "./"+"vcfile"+"/"+dt+message.author.id+".mp3"
     gTTS(text=messagestr, lang='ja').save(fname)
     return fname
 
