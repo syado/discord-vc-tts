@@ -30,14 +30,13 @@ playlist = {}
 
 """
 {
-    serverobj1: [[ストリーム0,fname0],[ストリーム1,fname1]]
-    serverobj2: [[ストリーム0,fname0],[ストリーム1,fname1],[ストリーム2,fname2]]
+    serverid1: [[ストリーム0,fname0],[ストリーム1,fname1]]
+    serverid2: [[ストリーム0,fname0],[ストリーム1,fname1],[ストリーム2,fname2]]
 }
 ＊ストリーム: create_ffmpeg_player(fname)
 """
 
-thread = {} 
-play_flag = {}
+play_flag = []
 yomi_user = []  # UserIDがあるものは読み上げオン
 yomi_channel = []  # ChannelIDがあるものは読み上げオン
 
@@ -113,19 +112,18 @@ def vcwrite(message):
     return fname
 
 
-def play(server):
-    print("playThread_start_"+server.name)
-    play_flag[server] = True
-    while play_flag[server]: # disconect時にFalse
-        if 0 < len(playlist[server]): # 現在再生中のものがあるか
-            if playlist[server][0][0].is_done(): # 再生が終わるったら
-                playlist[server][0][0].stop()     # 一応再生停止
-                os.remove(playlist[server][0][1]) # 音声ファイル削除
-                playlist[server].pop(0)           # リストの0個目を削除
-                if 0 < len(playlist[server]): # 次再生すべき物があるか
-                    playlist[server][0][0].start() # 次のを再生
-    print("playThread_end_"+server.name)
-
+def play():
+    while True:
+        if 0 < len(play_flag):
+            for serverid in play_flag:
+                if serverid in playlist:
+                    if 0 < len(playlist[serverid]): # 現在再生中のものがあるか
+                        if playlist[serverid][0][0].is_done(): # 再生が終わるったら
+                            playlist[serverid][0][0].stop()     # 一応再生停止
+                            os.remove(playlist[serverid][0][1]) # 音声ファイル削除
+                            playlist[serverid].pop(0)           # リストの0個目を削除
+                            if 0 < len(playlist[serverid]): # 次再生すべき物があるか
+                                playlist[serverid][0][0].start() # 次のを再生
 
 @echo
 @message_author_voice_channel
@@ -135,15 +133,14 @@ async def join(message):
         m = ":no_entry_sign: すでに"+vc.channel.name+"に接続しています"
     else:
         m = ":white_check_mark: ボイスチャンネル"+message.author.voice_channel.name+"に接続しました"
+        play_flag.append(message.server.id)
         # コマンド入力者のボイスチャンネルに接続
         await client.join_voice_channel(message.author.voice_channel)
         try:
-            if 0 < len(playlist[message.server]):
+            if 0 < len(playlist[message.server.id]):
                 pass
         except:
-            playlist[message.server] = []
-        thread[message.server] = threading.Thread(target=play, name="play", args=(message.server,))
-        thread[message.server].start()
+            playlist[message.server.id] = []
 
     return await client.send_message(message.channel, m)
 
@@ -157,7 +154,7 @@ async def disconect(message):
     if vc.channel == message.author.voice_channel:  # コマンド入力者のいるチャンネルとbotのいるチャンネルが同じか
         # 同じ場合
         await vc.disconnect()  # vcを切断
-        play_flag[message.server] = False
+        play_flag.remove(message.server.id)
         m = ":white_check_mark: ボイスチャンネル"+vc.channel.name+"から切断しました"
 
     else:
@@ -175,10 +172,7 @@ async def reconect(message):
     if vc.channel == message.author.voice_channel:  # コマンド入力者のいるチャンネルとbotのいるチャンネルが同じか
         # 同じ場合
         await vc.disconnect()  # vcを切断
-        play_flag[message.server] = False # playThreadを停止
         await client.join_voice_channel(vc.channel)
-        thread[message.server] = threading.Thread(target=play, name="play", args=(message.server,))
-        thread[message.server].start()
         m = ":white_check_mark: ボイスチャンネル"+vc.channel.name+"に再接続しました"
 
     else:
@@ -278,9 +272,9 @@ async def tts(message):
         vc = client.voice_client_in(message.server)  # vcのクライアント呼び出す
         cfp = vc.create_ffmpeg_player(fname)  # ストリーム作成
         tmp = [cfp, fname]  # ストリーム, ファイルディレクトリをリスト化
-        playlist[message.server].append(tmp)  # サーバーごとの辞書にリストを追加
-        if 1 == len(playlist[message.server]):  # 再生中のものがない場合
-            playlist[message.server][0][0].start()
+        playlist[message.server.id].append(tmp)  # サーバーごとの辞書にリストを追加
+        if 1 == len(playlist[message.server.id]):  # 再生中のものがない場合
+            playlist[message.server.id][0][0].start()
 
 
 @client.event
@@ -293,6 +287,8 @@ async def on_ready():
     for line in f:
         yomi_channel.append(line.replace('\n',''))
     f.close()
+    thread = threading.Thread(target=play)
+    thread.start()
 
     print('Logged in as')
     print(client.user.name)
