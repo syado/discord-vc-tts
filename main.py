@@ -10,7 +10,7 @@ import re
 import base64
 import threading
 from gtts import gTTS
-
+import uuid
 
 f = open("config.json", encoding='utf-8')
 config = json.load(f)
@@ -74,6 +74,7 @@ def client_is_voice_connected(func):
 
 
 def vcwrite(message):
+    fname = "./"+"vcfile"+"/"+str(uuid.uuid4())+".wav"
     messagestr = message.content
     messagestr = re.sub(r"https?://[\w/:%#\$&\?\(\)~\.=\+\-]+", "、以下URL省略、", messagestr)
     messagestr = re.sub(r"`+[\S\s]+`+", "、以下省略、", messagestr)
@@ -105,9 +106,7 @@ def vcwrite(message):
             messagestr = messagestr.replace(r.group(), channel.name+"チャンネル")
         else:
             break
-    
-    dt = datetime.datetime.today().strftime("%m_%d_%H_%M_%S_")
-    fname = "./"+"vcfile"+"/"+dt+message.author.id+".mp3"
+            
     gTTS(text=messagestr, lang='ja').save(fname)
     return fname
 
