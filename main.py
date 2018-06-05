@@ -308,7 +308,7 @@ async def on_message(message):
         elif message.author.id != client.user.id:
             if message.channel.id in yomi_channel:
                 if message.author.id in yomi_user:
-                    if not message.content.startswith(""):
+                    if not message.content.startswith("```"):
                         return await tts(message)
 
 
