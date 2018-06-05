@@ -110,19 +110,14 @@ def vcwrite(message):
     gTTS(text=messagestr, lang='ja').save(fname)
     return fname
 
-
-def play():
-    while True:
-        if 0 < len(play_flag):
-            for serverid in play_flag:
-                if serverid in playlist:
-                    if 0 < len(playlist[serverid]): # 現在再生中のものがあるか
-                        if playlist[serverid][0][0].is_done(): # 再生が終わるったら
-                            playlist[serverid][0][0].stop()     # 一応再生停止
-                            os.remove(playlist[serverid][0][1]) # 音声ファイル削除
-                            playlist[serverid].pop(0)           # リストの0個目を削除
-                            if 0 < len(playlist[serverid]): # 次再生すべき物があるか
-                                playlist[serverid][0][0].start() # 次のを再生
+def play(server):
+    player = playlist[server.id]
+    if player[0][0].is_done():     # 再生が終わったら
+        player[0][0].stop()        # 一応再生停止
+        os.remove(player[0][1])    # 音声ファイル削除
+        player.pop(0)              # リストの0個目を削除
+        if 0 < len(player):        # 次再生すべき物があるか
+            player[0][0].start()   # 次のを再生
 
 @echo
 @message_author_voice_channel
@@ -269,7 +264,7 @@ async def tts(message):
     if client.is_voice_connected(message.server):  # botが音声チャンネルに接続されているか
         fname = vcwrite(message)  # 音声合成ファイル作成　戻り値はファイルディレクトリ
         vc = client.voice_client_in(message.server)  # vcのクライアント呼び出す
-        cfp = vc.create_ffmpeg_player(fname)  # ストリーム作成
+        cfp = vc.create_ffmpeg_player(fname,after=lambda: play(message.server))  # ストリーム作成
         tmp = [cfp, fname]  # ストリーム, ファイルディレクトリをリスト化
         playlist[message.server.id].append(tmp)  # サーバーごとの辞書にリストを追加
         if 1 == len(playlist[message.server.id]):  # 再生中のものがない場合
@@ -286,8 +281,6 @@ async def on_ready():
     for line in f:
         yomi_channel.append(line.replace('\n',''))
     f.close()
-    thread = threading.Thread(target=play)
-    thread.start()
 
     print('Logged in as')
     print(client.user.name)
@@ -315,7 +308,9 @@ async def on_message(message):
         elif message.author.id != client.user.id:
             if message.channel.id in yomi_channel:
                 if message.author.id in yomi_user:
-                    return await tts(message)
+                    if not message.content.startswith(")"):
+                        return await tts(message)
+
 
     print(message.content)
 
